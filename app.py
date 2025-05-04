@@ -13,6 +13,58 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+from html import escape
+
+def render_custom_table(df):
+    styles = """
+    <style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+    th, td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        vertical-align: top;
+        text-align: left;
+        word-break: break-word;
+    }
+    th {
+        background-color: #f2f2f2;
+    }
+    .narrow {
+        width: 60px;
+        text-align: right;
+    }
+    .wide-text {
+        max-width: 600px;
+    }
+    </style>
+    """
+
+    columns = ['tweet_id', 'text', 'issue_type', 'category', 'keyword','retweet_count', 'favorite_count']
+    table_html = "<table><thead><tr>"
+    for col in columns:
+        table_html += f"<th>{escape(col)}</th>"
+    table_html += "</tr></thead><tbody>"
+
+    for _, row in df.iterrows():
+        table_html += "<tr>"
+        for col in columns:
+            val = str(row[col])
+            class_attr = ""
+            if col == 'text':
+                class_attr = 'class="wide-text"'
+            elif col in ['retweet_count', 'favorite_count']:
+                class_attr = 'class="narrow"'
+            table_html += f"<td {class_attr}>{escape(val)}</td>"
+        table_html += "</tr>"
+
+    table_html += "</tbody></table>"
+    st.markdown(styles + table_html, unsafe_allow_html=True)
+
+
 def connect_mongodb():
     uri = os.getenv("MONGO_URI")
     if not uri:
@@ -42,7 +94,7 @@ def load_data():
     if 'creation_date' in df.columns:
         df['creation_date'] = pd.to_datetime(df['creation_date'])
         # 只保留五月的数据
-        df = df[df['creation_date'].dt.month == 5]
+        # df = df[df['creation_date'].dt.month == 5]
     
     return df
 
@@ -158,104 +210,88 @@ def create_category_time_series_plot(df):
 def main():
     st.set_page_config(layout="wide")
     st.title("TikTok Governance Issues Analysis (May 2024)")
-    
+
     # 加载数据
     df = load_data()
-    
-    # 侧边栏筛选器
-    st.sidebar.header("Filters")
-    
-    # 问题类型筛选
-    issue_types = st.sidebar.multiselect(
-        "Select Issue Types",
-        options=['unhandled', 'mishandled'],
-        default=['unhandled', 'mishandled']
-    )
-    
-    # 分类筛选
-    categories = st.sidebar.multiselect(
-        "Select Categories",
-        options=df['category'].unique(),
-        default=df['category'].unique()
-    )
-    
-    # 日期范围筛选（默认五月）
+
+    # 侧边栏只保留日期范围过滤器
+    st.sidebar.header("Date Filter")
     if 'creation_date' in df.columns:
-        min_date = df['creation_date'].min()
-        max_date = df['creation_date'].max()
+        min_date = df['creation_date'].min().date()
+        max_date = df['creation_date'].max().date()
         date_range = st.sidebar.date_input(
             "Select Date Range",
             value=(min_date, max_date),
             min_value=min_date,
             max_value=max_date
         )
-    
-    # 应用筛选
-    filtered_df = df[
-        (df['issue_type'].isin(issue_types)) &
-        (df['category'].isin(categories))
+    else:
+        st.error("No 'creation_date' column found.")
+        return
+
+    # 先进行日期过滤
+    filtered_df = df.copy()
+    filtered_df = filtered_df[
+        (filtered_df['creation_date'].dt.date >= date_range[0]) &
+        (filtered_df['creation_date'].dt.date <= date_range[1])
     ]
-    
-    if 'creation_date' in df.columns:
-        filtered_df = filtered_df[
-            (filtered_df['creation_date'].dt.date >= date_range[0]) &
-            (filtered_df['creation_date'].dt.date <= date_range[1])
-        ]
-    
-    # 显示统计数据
+
+    # 显示上方统计图表
     col1, col2 = st.columns(2)
-    
     with col1:
         st.subheader("Issue Type Distribution")
         issue_type_counts = filtered_df['issue_type'].value_counts()
-        fig1 = px.pie(values=issue_type_counts.values, 
-                     names=issue_type_counts.index,
-                     title="Unhandled vs Mishandled Issues")
+        fig1 = px.pie(values=issue_type_counts.values, names=issue_type_counts.index,
+                      title="Unhandled vs Mishandled Issues")
         st.plotly_chart(fig1)
-    
     with col2:
         st.subheader("Category Distribution")
         category_counts = filtered_df['category'].value_counts()
-        fig2 = px.pie(values=category_counts.values, 
-                     names=category_counts.index,
-                     title="Issue Categories")
+        fig2 = px.pie(values=category_counts.values, names=category_counts.index,
+                      title="Issue Categories")
         st.plotly_chart(fig2)
-    
-    # 时间序列图表
+
+    # 时间趋势图
     st.subheader("Issue Trends Analysis")
     col3, col4 = st.columns(2)
-    
     with col3:
         st.markdown("**Daily Issue Type Distribution**")
         fig3 = create_daily_time_series_plot(filtered_df)
         st.plotly_chart(fig3, use_container_width=True)
-    
     with col4:
         st.markdown("**Daily Category Distribution**")
         fig4 = create_category_time_series_plot(filtered_df)
         st.plotly_chart(fig4, use_container_width=True)
-    
-    # 显示每日汇总表格
-    st.subheader("Daily Issue Summary")
-    daily_summary = create_daily_summary_table(filtered_df)
 
-    # 添加总计行
-    total_row = pd.DataFrame({
-        'Date': ['Total'],
-        'Total Issues': [daily_summary['Total Issues'].sum()],
-        'Unhandled Issues': [daily_summary['Unhandled Issues'].sum()],
-        'Mishandled Issues': [daily_summary['Mishandled Issues'].sum()],
-        'Category Distribution': ['Overall Summary']
-    })
-    daily_summary = pd.concat([daily_summary, total_row], ignore_index=True)
-
-    # 显示表格
-    st.dataframe(daily_summary, use_container_width=True)
-
-    # 显示详细数据
     st.subheader("Detailed Issue Data")
-    st.dataframe(filtered_df[['tweet_id', 'creation_date', 'text', 'issue_type', 
-                             'category', 'retweet_count', 'favorite_count']])
+
+    issue_type_options = ['All'] + sorted(filtered_df['issue_type'].dropna().unique().tolist())
+    category_options = ['All'] + sorted(filtered_df['category'].dropna().unique().tolist())
+
+    with st.form(key="filter_form"):
+        selected_issue_type = st.selectbox("Select Issue Type", issue_type_options)
+        selected_category = st.selectbox("Select Category", category_options)
+        apply_clicked = st.form_submit_button("Apply Filters")
+
+    # 默认显示所有数据
+    df_filtered_comments = filtered_df.copy()
+
+    # 只有点击按钮才执行过滤
+    if apply_clicked:
+        if selected_issue_type != 'All':
+            df_filtered_comments = df_filtered_comments[df_filtered_comments['issue_type'] == selected_issue_type]
+        if selected_category != 'All':
+            df_filtered_comments = df_filtered_comments[df_filtered_comments['category'] == selected_category]
+
+    # 为 text 字段设置合适格式，强制换行显示
+    df_display = df_filtered_comments.copy()
+    df_display['text'] = df_display['text'].apply(lambda x: x.replace('\n', ' ').strip())
+    render_custom_table(df_display)
+
+
+
+
+
 
 if __name__ == "__main__":
     main()
