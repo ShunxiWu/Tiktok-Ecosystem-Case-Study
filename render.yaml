@@ -1,0 +1,36 @@
+services:
+  # Web Application (Streamlit)
+  - type: web
+    name: tiktok-analysis-web
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.18
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: RAPIDAPI_KEY
+        sync: false
+
+  # Worker Service (Scheduler)
+  - type: worker
+    name: tiktok-analysis-worker
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scheduler.py
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.18
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: RAPIDAPI_KEY
+        sync: false
