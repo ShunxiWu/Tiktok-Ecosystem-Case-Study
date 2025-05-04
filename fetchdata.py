@@ -8,6 +8,7 @@ import logging
 
 load_dotenv()
 
+# 放在 fetchdata.py 顶部（在 import 后）
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -819,19 +820,39 @@ language = "en"
 min_retweets = "20"
 min_likes = "20"
 limit = 20
-max_results = 100000
+max_results = 1000000
 
 def insert_new_tweets(tweets, collection, category, keyword):
     new_tweets = []
+    updated_count = 0
+
     for tweet in tweets:
         tweet_id = tweet.get("tweet_id")
-        if tweet_id and not collection.find_one({"tweet_id": tweet_id}):
+        if not tweet_id:
+            continue
+
+        existing = collection.find_one({"tweet_id": tweet_id})
+        if existing:
+            # 检查是否有变动，如果有就更新
+            updated_fields = {}
+            if tweet.get("favorite_count") != existing.get("favorite_count"):
+                updated_fields["favorite_count"] = tweet.get("favorite_count")
+            if tweet.get("retweet_count") != existing.get("retweet_count"):
+                updated_fields["retweet_count"] = tweet.get("retweet_count")
+            if updated_fields:
+                collection.update_one({"tweet_id": tweet_id}, {"$set": updated_fields})
+                updated_count += 1
+        else:
             tweet["category"] = category
             tweet["keyword"] = keyword
             new_tweets.append(tweet)
+
     if new_tweets:
         collection.insert_many(new_tweets)
+
+    logger.info(f"Inserted {len(new_tweets)} new tweets, Updated {updated_count} existing tweets.")
     return len(new_tweets)
+
 
 def fetch_data():
     client = connect_mongodb()
@@ -840,7 +861,7 @@ def fetch_data():
     try:
         for category, keywords in query_categories.items():
             # Limit to first 5 keywords for testing
-            for keyword in keywords:
+            for keyword in keywords[:5]:
                 logger.info(f"Searching: [{category}] '{keyword}'")
                 continuation_token = None
 
