@@ -25,7 +25,7 @@ def hourly_task():
         current_time = datetime.now()
         one_hour_ago = current_time - timedelta(hours=1)
         # Use more precise time format
-        fetchdata.start_date = one_hour_ago.strftime("%Y-%m-%d %H:%M:%S")
+        # fetchdata.start_date = one_hour_ago.strftime("%Y-%m-%d %H:%M:%S")
         
         logger.info(f"Starting data fetch from {fetchdata.start_date}")
         fetchdata.fetch_data()
