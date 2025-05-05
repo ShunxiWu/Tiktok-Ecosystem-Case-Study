@@ -861,7 +861,7 @@ def fetch_data():
     try:
         for category, keywords in query_categories.items():
             # Limit to first 5 keywords for testing
-            for keyword in keywords[:5]:
+            for keyword in keywords:
                 logger.info(f"Searching: [{category}] '{keyword}'")
                 continuation_token = None
 
