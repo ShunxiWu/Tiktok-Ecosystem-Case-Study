@@ -22,7 +22,7 @@ def classify_issue(text):
         "2 = Mishandled Issue: TikTok's action made things worse. Examples: wrong account bans, unfair content removal, or when reporting made the problem worse.\n\n"
         "3 = Non-Issue: User is just sharing content, promoting something, or making general comments without reporting any problems.\n\n"
         f"Comment:\n{text}\n\n"
-        "You must respond with either 1, 2, or 3. No other responses are allowed,Do NOT include any explanation, punctuation, or other text."
+        "You must respond with either 1, 2, or 3. Only number is allowes, No other responses are allowed, Do NOT include any explanation, punctuation, or other text."
     )
 
     try:
