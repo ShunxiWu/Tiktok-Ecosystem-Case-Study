@@ -18,11 +18,11 @@ def connect_mongodb():
 def classify_issue(text):
     prompt = (
         "As a TikTok Governance PM, analyze this user comment and classify it:\n\n"
-        "1. Ecosystem Issue: User reports problems like impersonation, scams, or harmful content that TikTok hasn't addressed. Examples: fake accounts, stolen content, impersonation, scams, harmful challenges, etc.\n\n"
-        "2. Mishandled Issue: TikTok's action made things worse. Examples: wrong account bans, unfair content removal, or when reporting made the problem worse.\n\n"
-        "3. Non-Issue: User is just sharing content, promoting something, or making general comments without reporting any problems.\n\n"
+        "1 = Ecosystem Issue: User reports problems like impersonation, scams, or harmful content that TikTok hasn't addressed. Examples: fake accounts, stolen content, impersonation, scams, harmful challenges, etc.\n\n"
+        "2 = Mishandled Issue: TikTok's action made things worse. Examples: wrong account bans, unfair content removal, or when reporting made the problem worse.\n\n"
+        "3 = Non-Issue: User is just sharing content, promoting something, or making general comments without reporting any problems.\n\n"
         f"Comment:\n{text}\n\n"
-        "You must respond with either 1, 2, or 3. No other responses are allowed."
+        "You must respond with either 1, 2, or 3. No other responses are allowed,Do NOT include any explanation, punctuation, or other text."
     )
 
     try:
