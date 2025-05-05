@@ -42,7 +42,7 @@ def main():
     scheduler = BlockingScheduler()
     
     # Run task every hour
-    scheduler.add_job(hourly_task, 'interval', hours=1)
+    scheduler.add_job(hourly_task, 'interval', hours=12)
     
     # Run immediately on startup
     logger.info("Running initial task...")
