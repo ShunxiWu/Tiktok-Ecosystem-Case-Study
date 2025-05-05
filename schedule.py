@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 def hourly_task():
     try:
         current_time = datetime.now()
-        one_hour_ago = current_time - timedelta(hours=1)
+        one_hour_ago = current_time - timedelta(hours=12)
         # Use more precise time format
         # fetchdata.start_date = one_hour_ago.strftime("%Y-%m-%d %H:%M:%S")
         
