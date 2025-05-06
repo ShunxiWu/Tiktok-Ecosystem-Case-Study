@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 def hourly_task():
     try:
         current_time = datetime.now()
-        one_hour_ago = current_time - timedelta(hours=12)
+        one_hour_ago = current_time - timedelta(hours=6)
         # Use more precise time format
         # fetchdata.start_date = one_hour_ago.strftime("%Y-%m-%d %H:%M:%S")
         
@@ -42,7 +42,7 @@ def main():
     scheduler = BlockingScheduler()
     
     # Run task every hour
-    scheduler.add_job(hourly_task, 'interval', hours=12)
+    scheduler.add_job(hourly_task, 'interval', hours=6)
     
     # Run immediately on startup
     logger.info("Running initial task...")
