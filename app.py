@@ -22,15 +22,11 @@ def clean_text(text):
     """清除控制字符并转义 HTML，避免非法字符导致渲染崩溃。"""
     if pd.isna(text):
         return ""
-    try:
+    if not isinstance(text, str):
         text = str(text)
-        text = unicodedata.normalize("NFKD", text)
-        text = re.sub(r"[\x00-\x1f\x7f-\x9f]", "", text)  # 删除控制字符
-        text = escape(text)  # HTML 转义
-        return text
-    except Exception as e:
-        logger.warning(f"Failed to clean text: {text} — {e}")
-        return ""
+    text = unicodedata.normalize("NFKD", text)                  # 标准化为兼容形式
+    text = re.sub(r"[\x00-\x1f\x7f-\x9f]", "", text)            # 去除控制字符
+    return escape(text)                                         # HTML 转义
 
 def render_custom_table(df):
     styles = """
@@ -62,26 +58,42 @@ def render_custom_table(df):
 
     columns = ['creation_date', 'text', 'issue_type', 'category', 'keyword', 'retweet_count', 'favorite_count']
     table_html = "<table><thead><tr>"
+    
     for col in columns:
-        table_html += f"<th>{escape(col)}</th>"
+        table_html += f"<th>{escape(str(col))}</th>"
     table_html += "</tr></thead><tbody>"
 
-    for _, row in df.iterrows():
-        table_html += "<tr>"
-        for col in columns:
-            if col == 'creation_date' and isinstance(row[col], pd.Timestamp):
-                val = row[col].strftime('%Y-%m-%d %H:%M')
-            else:
-                val = clean_text(row[col])
-            class_attr = ""
-            if col == 'text':
-                class_attr = 'class="wide-text"'
-            elif col in ['retweet_count', 'favorite_count']:
-                class_attr = 'class="narrow"'
-            table_html += f"<td {class_attr}>{val}</td>"
-        table_html += "</tr>"
+    for idx, row in df.iterrows():
+        try:
+            table_html += "<tr>"
+            for col in columns:
+                class_attr = ""
+                if col == 'creation_date' and isinstance(row[col], pd.Timestamp):
+                    val = row[col].strftime('%Y-%m-%d %H:%M')
+                else:
+                    val = clean_text(row.get(col, ""))
+
+                if col == 'text':
+                    class_attr = 'class="wide-text"'
+                elif col in ['retweet_count', 'favorite_count']:
+                    class_attr = 'class="narrow"'
+
+                # 最后一层防御：避免非法字符干扰 HTML 渲染
+                val = escape(str(val)).replace('\x00', '')
+                table_html += f"<td {class_attr}>{val}</td>"
+            table_html += "</tr>"
+        except Exception as e:
+            logger.warning(f"Error rendering row {idx}: {e}")
+            continue
 
     table_html += "</tbody></table>"
+
+    # 可选：移除任何乱码字符
+    try:
+        table_html = table_html.encode('ascii', errors='ignore').decode()
+    except:
+        pass
+
     st.markdown(styles + table_html, unsafe_allow_html=True)
 
 
@@ -150,32 +162,53 @@ def connect_mongodb():
         raise ValueError("MONGO_URI environment variable not set")
     return MongoClient(uri)
 
+def contains_illegal_char(value):
+    try:
+        if isinstance(value, dict):
+            return any(contains_illegal_char(v) for v in value.values())
+        elif isinstance(value, list):
+            return any(contains_illegal_char(item) for item in value)
+        elif isinstance(value, str):
+            return '\uFFFD' in value
+    except:
+        return False
+    return False
+
+def clean_illegal_rows(df):
+    def is_row_clean(row):
+        for col in row.index:
+            val = row[col]
+            if contains_illegal_char(val):
+                return False
+        return True
+    return df[df.apply(is_row_clean, axis=1)]
+
 def load_data():
     client = connect_mongodb()
     db = client["tiktok"]
-    
-    # 加载两个主要问题集合
+
+    # 加载两个集合
     unhandled = list(db["unhandled_issues"].find())
     mishandled = list(db["mishandled_issues"].find())
-    
-    # 转换为DataFrame
+
+    # 转换为 DataFrame 并加标签
     df_unhandled = pd.DataFrame(unhandled)
     df_mishandled = pd.DataFrame(mishandled)
-    
-    # 添加问题类型标记
     df_unhandled['issue_type'] = 'unhandled'
     df_mishandled['issue_type'] = 'mishandled'
-    
-    # 合并数据
+
+    # 合并
     df = pd.concat([df_unhandled, df_mishandled])
-    
-    # 转换日期格式
+
+    # 转换日期字段
     if 'creation_date' in df.columns:
-        df['creation_date'] = pd.to_datetime(df['creation_date'])
-        # 只保留五月的数据
-        # df = df[df['creation_date'].dt.month == 5]
-    
+        df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
+
+    # ⚠️ 过滤非法字符行
+    df = clean_illegal_rows(df)
+
     return df
+
 
 def create_today_hourly_flow_plot(df):
     # 获取今天的日期（UTC）
@@ -577,7 +610,7 @@ def main():
     if st.session_state.category != 'All':
         df_filtered_comments = df_filtered_comments[df_filtered_comments['category'] == st.session_state.category]
 
-
+    # ✅ GPT 摘要仅在点击按钮后运行一次
     if st.session_state.generate_summary:
         st.session_state.generate_summary = False  # 用完即清除
         if not df_filtered_comments.empty:
@@ -599,6 +632,7 @@ def main():
                 st.markdown("### 🧠 GPT Summary")
                 st.markdown(gpt_output)
 
+    # ✅ 渲染最终表格（始终显示）
     st.subheader("Detailed Tweets")
     df_display = df_filtered_comments.copy()
     df_display['text'] = df_display['text'].apply(lambda x: x.replace('\n', ' ').strip())
