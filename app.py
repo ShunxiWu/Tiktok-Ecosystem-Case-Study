@@ -22,11 +22,15 @@ def clean_text(text):
     """清除控制字符并转义 HTML，避免非法字符导致渲染崩溃。"""
     if pd.isna(text):
         return ""
-    if not isinstance(text, str):
+    try:
         text = str(text)
-    text = unicodedata.normalize("NFKD", text)                  # 标准化为兼容形式
-    text = re.sub(r"[\x00-\x1f\x7f-\x9f]", "", text)            # 去除控制字符
-    return escape(text)                                         # HTML 转义
+        text = unicodedata.normalize("NFKD", text)
+        text = re.sub(r"[\x00-\x1f\x7f-\x9f]", "", text)  # 删除控制字符
+        text = escape(text)  # HTML 转义
+        return text
+    except Exception as e:
+        logger.warning(f"Failed to clean text: {text} — {e}")
+        return ""
 
 def render_custom_table(df):
     styles = """
