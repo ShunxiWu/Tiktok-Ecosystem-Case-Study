@@ -187,9 +187,27 @@ def load_data():
     client = connect_mongodb()
     db = client["tiktok"]
 
-    # 加载两个集合
-    unhandled = list(db["unhandled_issues"].find())
-    mishandled = list(db["mishandled_issues"].find())
+    # 设定需要的字段（projection）
+    projection = {
+        '_id': 0,
+        'creation_date': 1,
+        'text': 1,
+        'category': 1,
+        'keyword': 1,
+        'retweet_count': 1,
+        'favorite_count': 1
+    }
+
+    # 设定日期范围（5月1日至5月31日）
+    start_date = datetime(2025, 5, 1)
+    end_date = datetime(2025, 5, 31, 23, 59, 59)
+
+    # MongoDB查询条件
+    query = {"creation_date": {"$gte": start_date, "$lte": end_date}}
+
+    # 分别查询
+    unhandled = list(db["unhandled_issues"].find(query, projection))
+    mishandled = list(db["mishandled_issues"].find(query, projection))
 
     # 转换为 DataFrame 并加标签
     df_unhandled = pd.DataFrame(unhandled)
@@ -198,16 +216,17 @@ def load_data():
     df_mishandled['issue_type'] = 'mishandled'
 
     # 合并
-    df = pd.concat([df_unhandled, df_mishandled])
+    df = pd.concat([df_unhandled, df_mishandled], ignore_index=True)
 
-    # 转换日期字段
+    # 转换日期
     if 'creation_date' in df.columns:
         df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
 
-    # ⚠️ 过滤非法字符行
+    # 清理非法字符
     df = clean_illegal_rows(df)
 
     return df
+
 
 
 def create_today_hourly_flow_plot(df):
