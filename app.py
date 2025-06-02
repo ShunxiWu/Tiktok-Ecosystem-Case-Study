@@ -495,7 +495,7 @@ def create_daily_type_percentage_plot(df):
 
 def main():
     st.set_page_config(layout="wide")
-    st.title("TikTok Governance Issues Analysis (May 2024)")
+    st.title("TikTok Governance Issues Analysis (May 2025)")
 
     # 初始化 session state
     if "issue_type" not in st.session_state:
@@ -514,8 +514,8 @@ def main():
         st.error("No 'creation_date' column found.")
         return
 
-    min_date = df['creation_date'].min().date()
-    max_date = df['creation_date'].max().date()
+    min_date = datetime(2025, 5, 1).date()
+    max_date = datetime(2025, 5, 31).date()
     date_range = st.sidebar.date_input(
         "Select Date Range",
         value=(min_date, max_date),
