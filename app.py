@@ -188,34 +188,30 @@ def load_data():
     client = connect_mongodb()
     db = client["tiktok"]
 
-    # 1. 读取 MongoDB 中的两个集合
     unhandled = list(db["unhandled_issues"].find())
     mishandled = list(db["mishandled_issues"].find())
 
-    # 2. 转为 DataFrame
     df_unhandled = pd.DataFrame(unhandled)
     df_mishandled = pd.DataFrame(mishandled)
-
-    # 3. 添加 issue_type
     df_unhandled['issue_type'] = 'unhandled'
     df_mishandled['issue_type'] = 'mishandled'
 
-    # 4. 合并两个 DataFrame
     df = pd.concat([df_unhandled, df_mishandled], ignore_index=True)
 
-    # 5. 转换 creation_date 字段（不带时区）
     if 'creation_date' in df.columns:
-        df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce').dt.date
+        df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
+    else:
+        df['creation_date'] = pd.NaT
 
-    # 6. 过滤 5/1 至 5/31 的数据
-    start_date = datetime(2025, 5, 1).date()
-    end_date = datetime(2025, 5, 31).date()
+    # 这里直接在 datetime 里过滤
+    start_date = pd.Timestamp('2025-05-01')
+    end_date = pd.Timestamp('2025-05-31 23:59:59')
     df = df[(df['creation_date'] >= start_date) & (df['creation_date'] <= end_date)]
 
-    # 7. 清理非法字符
     df = clean_illegal_rows(df)
 
     return df
+
 
 
 
