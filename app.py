@@ -199,20 +199,19 @@ def load_data():
     df = pd.concat([df_unhandled, df_mishandled], ignore_index=True)
 
     if 'creation_date' in df.columns:
-        df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
+        df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce', utc=True)
     else:
         df['creation_date'] = pd.NaT
 
-    # 这里直接在 datetime 里过滤
-    start_date = pd.Timestamp('2025-05-01')
-    end_date = pd.Timestamp('2025-05-31 23:59:59')
+    # 这里显式加上 UTC
+    start_date = pd.Timestamp('2025-05-01', tz='UTC')
+    end_date = pd.Timestamp('2025-05-31 23:59:59', tz='UTC')
+
     df = df[(df['creation_date'] >= start_date) & (df['creation_date'] <= end_date)]
 
     df = clean_illegal_rows(df)
 
     return df
-
-
 
 
 def create_today_hourly_flow_plot(df):
