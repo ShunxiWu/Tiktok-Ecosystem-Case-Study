@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 from dotenv import load_dotenv
 import os
 import logging
+import pytz
 
 load_dotenv()
 
@@ -216,8 +217,9 @@ def load_data():
         df['creation_date'] = pd.NaT
 
     # 4. Pandas 里进行默认筛选（例如 5月1日至5月31日）
-    start_date = datetime(2025, 5, 1)
-    end_date = datetime(2025, 5, 31, 23, 59, 59)
+    start_date = pytz.utc.localize(datetime(2025, 5, 1))
+    end_date = pytz.utc.localize(datetime(2025, 5, 31, 23, 59, 59))
+
     df = df[(df['creation_date'] >= start_date) & (df['creation_date'] <= end_date)]
 
     # 5. 清理非法字符
