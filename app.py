@@ -188,44 +188,34 @@ def load_data():
     client = connect_mongodb()
     db = client["tiktok"]
 
-    # Projection（如果需要减少字段）
-    projection = {
-        '_id': 0,
-        'creation_date': 1,
-        'text': 1,
-        'category': 1,
-        'keyword': 1,
-        'retweet_count': 1,
-        'favorite_count': 1
-    }
+    # 1. 读取 MongoDB 中的两个集合
+    unhandled = list(db["unhandled_issues"].find())
+    mishandled = list(db["mishandled_issues"].find())
 
-    # 1. 先完整读所有文档（就像旧代码）
-    unhandled = list(db["unhandled_issues"].find({}, projection))
-    mishandled = list(db["mishandled_issues"].find({}, projection))
-
-    # 2. 转 DataFrame 并合并
+    # 2. 转为 DataFrame
     df_unhandled = pd.DataFrame(unhandled)
     df_mishandled = pd.DataFrame(mishandled)
+
+    # 3. 添加 issue_type
     df_unhandled['issue_type'] = 'unhandled'
     df_mishandled['issue_type'] = 'mishandled'
+
+    # 4. 合并两个 DataFrame
     df = pd.concat([df_unhandled, df_mishandled], ignore_index=True)
 
-    # 3. 统一时间列
+    # 5. 转换 creation_date 字段（不带时区）
     if 'creation_date' in df.columns:
-        df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce')
-    else:
-        df['creation_date'] = pd.NaT
+        df['creation_date'] = pd.to_datetime(df['creation_date'], errors='coerce').dt.date
 
-    # 4. Pandas 里进行默认筛选（例如 5月1日至5月31日）
-    start_date = pytz.utc.localize(datetime(2025, 5, 1))
-    end_date = pytz.utc.localize(datetime(2025, 5, 31, 23, 59, 59))
-
+    # 6. 过滤 5/1 至 5/31 的数据
+    start_date = datetime(2025, 5, 1).date()
+    end_date = datetime(2025, 5, 31).date()
     df = df[(df['creation_date'] >= start_date) & (df['creation_date'] <= end_date)]
 
-    # 5. 清理非法字符
+    # 7. 清理非法字符
     df = clean_illegal_rows(df)
-    return df
 
+    return df
 
 
 
